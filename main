@@ -1,1 +1,27 @@
+clear all;
+clc;
+warning off;
 
+fprintf('run pie \n');
+srcStr = {'PIE05','PIE05','PIE05','PIE05','PIE07','PIE07','PIE07','PIE07','PIE09','PIE09','PIE09','PIE09','PIE27','PIE27','PIE27','PIE27','PIE29','PIE29','PIE29','PIE29'};
+tgtStr = {'PIE07','PIE09','PIE27','PIE29','PIE05','PIE09','PIE27','PIE29','PIE05','PIE07','PIE27','PIE29','PIE05','PIE07','PIE09','PIE29','PIE05','PIE07','PIE09','PIE27'};
+
+for iData = 1:20%20
+    src = char(srcStr{iData});
+    tgt = char(tgtStr{iData});
+    options.data = strcat(src,'_vs_',tgt);
+    options.data_num = iData;
+    
+    %% data processing
+    [CXs,CXt,CYs,CYt] = prepare_pie(src,tgt);
+    
+    options.xt = CXt;
+    options.yt = CYt;
+    options.xs = CXs;
+    options.ys = CYs;        
+
+    % Accuracy calculation                 
+    [iacc, ~] = calculation_acc(options);
+
+
+end

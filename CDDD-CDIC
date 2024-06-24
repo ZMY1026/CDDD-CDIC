@@ -1,1 +1,100 @@
+function [Z,A] = CDDD-CDIC(Xs,Xt,Ys,Yt0,Yt_new,options)
+%  function [Z,A,obj] = CDDD-CDIC(Xs,Xt,Ys,Yt0,Yt_new,options)
 
+if nargin < 5
+    error('Algorithm parameters should be set!');
+end
+
+
+%   obj_matrix = [];
+
+X = [Xs, Xt];
+X = X*diag(sparse(1./sqrt(sum(X.^2)))); 
+[m,n] = size(X);
+ns = size(Xs,2);
+nt = size(Xt,2);
+C = max(Ys);
+L = zeros(ns+nt);
+
+
+%% build source class discriminative item
+tp = full(sparse(1:ns,Ys,1));    %X
+tp2 = tp*diag(1./(eps+sum(tp)));
+tp3 = tp2*tp';
+
+%%% graph structure
+W11 = tp3;
+D11 = diag(sum(W11,2));
+L11 = D11 - W11; 
+L(1:ns,1:ns) = L11 ;
+
+% Generate soft labels for the target domain
+%KNN
+ knn_model = fitcknn(X(:,1:ns)',Ys,'NumNeighbors',1 ,'Distance', 'cosine');
+ Cls = knn_model.predict(X(:,ns + 1:end)');
+ 
+
+%% build MMD matrix
+for t = 1 : options.T
+%   for t = 1 : 10
+      % Estimate mu
+     mu = estimate_mu(Xs',Ys,Xt',Cls);
+      %Construct MMD matrix
+     e = [1/ns*ones(ns,1);-1/nt*ones(nt,1)];
+     M = e*e'*C;   %  M0 = e*e'*C;
+     tp0001 = 0;
+     N=0;
+if ~isempty(Yt0) && size(Yt0,1)==nt
+
+    for c = 1:C
+        e = zeros(n,1);
+        e(Ys==c) = 1/(eps+length(find(Ys==c)));%eps是一个极小常数，用于避免除以零的错误
+        e(ns+1:end) = -Yt0(:,c)/(eps+sum(Yt0(:,c)));%计算目标域中第c类的权重
+        e(isinf(e)) = 0; 
+        e(isnan(e)) = 0;
+        N = N + e*e';% Mc= e*e'
+    end
+    
+    %% build target class discriminative item
+    tp001 = Yt0;
+    %%%    L_with_p
+    tp0001 = tp001*diag(1./sum(tp001));%diag：计算矩阵的对角线的函数
+    tp0001(isnan(tp0001)) = 0;
+    tp0002 = tp0001*tp001';
+    W111 = tp0002;
+    D111 = diag(sum(W111,2));
+    L111 = D111 - W111;     
+    L(ns+1:end,ns+1:end) = L111*L111';
+end
+ M=(1-mu)*M+mu*N; %M=(1-mu)*M0+mu*Mc
+ 
+ M = M/norm(M,'fro');
+ L = L/(eps + norm(L,'fro'));  %%% data processing
+ end
+
+%% build centering matrix
+H = eye(n)-1/(n)*ones(n,n);
+
+%% build cross-domain alignment item
+%%% build local cross-domain alignment item  CD_L
+[ LL,DD,WW ] = CD_L(X,Ys,Yt_new,C,options);  %%%knn find neighbors
+
+%%% build global cross-domain alignment item  CD_G
+[LL01,DD01,WW01] = CD_G(X,Ys,Yt_new,tp0001,C,options) ; 
+LL01 = LL01*LL01';
+
+LL = LL/norm(LL,'fro');
+LL01 = LL01/norm(LL01,'fro');
+
+LL(isnan(LL)) = 0;
+LL01(isnan(LL01)) = 0;
+ 
+
+%% calculate the projection matrix A
+
+  T = X*H*X';    
+	[A,~] = eigs(lambda*speye(m)+X*(faim*M+fai*LL+fai1*LL01+fai2*L)*X', T, k,'sm'); 
+  Z = real(A(:,1:end)'*X);
+
+
+end

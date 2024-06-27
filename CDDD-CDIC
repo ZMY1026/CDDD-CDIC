@@ -1,12 +1,8 @@
 function [Z,A] = CDDD-CDIC(Xs,Xt,Ys,Yt0,Yt_new,options)
-%  function [Z,A,obj] = CDDD-CDIC(Xs,Xt,Ys,Yt0,Yt_new,options)
 
 if nargin < 5
     error('Algorithm parameters should be set!');
 end
-
-
-%   obj_matrix = [];
 
 X = [Xs, Xt];
 X = X*diag(sparse(1./sqrt(sum(X.^2)))); 
@@ -30,8 +26,8 @@ L(1:ns,1:ns) = L11 ;
 
 % Generate soft labels for the target domain
 %KNN
- knn_model = fitcknn(X(:,1:ns)',Ys,'NumNeighbors',1 ,'Distance', 'cosine');
- Cls = knn_model.predict(X(:,ns + 1:end)');
+knn_model = fitcknn(X(:,1:ns)',Ys,'NumNeighbors',1 ,'Distance', 'cosine');
+Cls = knn_model.predict(X(:,ns + 1:end)');
  
 
 %% build MMD matrix
@@ -93,7 +89,7 @@ LL01(isnan(LL01)) = 0;
 %% calculate the projection matrix A
 
   T = X*H*X';    
-	[A,~] = eigs(lambda*speye(m)+X*(faim*M+fai*LL+fai1*LL01+fai2*L)*X', T, k,'sm'); 
+  [A,~] = eigs(lambda*speye(m)+X*(faim*M+fai*LL+fai1*LL01+fai2*L)*X', T, k,'sm'); 
   Z = real(A(:,1:end)'*X);
 
 
